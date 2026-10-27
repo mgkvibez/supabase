@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2Icon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
@@ -31,7 +32,7 @@ import { InlineLink } from '@/components/ui/InlineLink'
 import { UpgradeToPro } from '@/components/ui/UpgradeToPro'
 import { useBranchCreateMutation } from '@/data/branches/branch-create-mutation'
 import { useBranchUpdateMutation } from '@/data/branches/branch-update-mutation'
-import { useBranchesQuery } from '@/data/branches/branches-query'
+import { branchesQueryOptions } from '@/data/branches/branches-query'
 import { useCheckGithubBranchValidity } from '@/data/integrations/github-branch-check-query'
 import { useGitHubConnectionCreateMutation } from '@/data/integrations/github-connection-create-mutation'
 import { useGitHubConnectionDeleteMutation } from '@/data/integrations/github-connection-delete-mutation'
@@ -42,6 +43,7 @@ import { FGA_PERMISSIONS, useAsyncCheckPermissionsV2 } from '@/hooks/misc/useChe
 import { useSelectedOrganizationQuery } from '@/hooks/misc/useSelectedOrganization'
 import { useSelectedProjectQuery } from '@/hooks/misc/useSelectedProject'
 import { DOCS_URL } from '@/lib/constants'
+import { useGrant } from '@/lib/grants'
 
 interface GitHubIntegrationConnectionFormProps {
   connection?: GitHubConnection
@@ -92,10 +94,13 @@ export const GitHubIntegrationConnectionForm = ({
     },
   })
 
-  const { data: existingBranches } = useBranchesQuery(
-    { projectRef: selectedProject?.ref },
-    { enabled: !!selectedProject?.ref }
-  )
+  const branchesGrant = useGrant('GET /v1/projects/{ref}/branches', {
+    projectRef: selectedProject?.ref,
+  })
+  const { data: existingBranches } = useQuery({
+    ...branchesQueryOptions({ projectRef: selectedProject?.ref, grant: branchesGrant.grant }),
+    enabled: !!selectedProject?.ref,
+  })
 
   const { mutateAsync: checkGithubBranchValidity, isPending: isCheckingBranch } =
     useCheckGithubBranchValidity({ onError: () => {} })

@@ -97,6 +97,11 @@ export const GitHubIntegrationConnectionForm = ({
   const branchesGrant = useGrant('GET /v1/projects/{ref}/branches', {
     projectRef: selectedProject?.ref,
   })
+  const createBranchGrant = useGrant(
+    'POST /v1/projects/{ref}/branches',
+    { projectRef: selectedProject?.ref },
+    { variant: 'production' }
+  )
   const { data: existingBranches } = useQuery({
     ...branchesQueryOptions({ projectRef: selectedProject?.ref, grant: branchesGrant.grant }),
     enabled: !!selectedProject?.ref,
@@ -258,12 +263,17 @@ export const GitHubIntegrationConnectionForm = ({
           projectRef: selectedProject.ref,
           gitBranch: data.branchName,
         })
-      : createBranch({
-          projectRef: selectedProject.ref,
-          branchName: 'main',
-          gitBranch: data.branchName,
-          is_default: true,
-        })
+      : createBranchGrant.status === 'granted'
+        ? createBranch({
+            grant: createBranchGrant.grant,
+            projectRef: selectedProject.ref,
+            branchName: 'main',
+            gitBranch: data.branchName,
+            is_default: true,
+          })
+        : Promise.reject(
+            new Error('You need additional permissions to update the production branch')
+          )
 
     // Only re-baseline the form once both requests succeed, so a failure keeps the edits unsaved
     const results = await Promise.allSettled([connectionRequest, branchRequest])
@@ -316,12 +326,17 @@ export const GitHubIntegrationConnectionForm = ({
           gitBranch: data.enableProductionSync ? data.branchName : '',
           branchName: data.branchName || 'main',
         })
-      : createBranch({
-          projectRef: selectedProject.ref,
-          gitBranch: data.enableProductionSync ? data.branchName : '',
-          branchName: data.branchName || 'main',
-          is_default: true,
-        })
+      : createBranchGrant.status === 'granted'
+        ? createBranch({
+            grant: createBranchGrant.grant,
+            projectRef: selectedProject.ref,
+            gitBranch: data.enableProductionSync ? data.branchName : '',
+            branchName: data.branchName || 'main',
+            is_default: true,
+          })
+        : Promise.reject(
+            new Error('You need additional permissions to update the production branch')
+          )
 
     setIsConfirmingBranchChange(false)
 
